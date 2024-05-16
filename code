@@ -1,0 +1,141 @@
+import React, { Component } from 'react';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SwipeListView } from 'react-native-swipe-list-view';
+
+class TodoApp extends Component {
+    state = {
+        items: [],
+        currentKey: null,
+        title: '',
+        description: '',
+        isEditing: false,
+    };
+
+    componentDidMount() {
+        this.loadItems();
+    }
+
+    loadItems = async () => {
+        const items = await AsyncStorage.getItem('items');
+        if (items) {
+            this.setState({ items: JSON.parse(items) });
+        }
+    };
+
+    editItem = (key) => {
+        const item = this.state.items.find(item => item.key === key);
+        this.setState({
+            currentKey: key,
+            title: item.title,
+            description: item.description,
+            isEditing: true
+        });
+    };
+
+    handleAddOrEdit = async () => {
+        if (this.state.isEditing) {
+            const updatedItems = this.state.items.map(item => {
+                if (item.key === this.state.currentKey) {
+                    return {
+                        ...item,
+                        title: this.state.title,
+                        description: this.state.description
+                    };
+                }
+                return item;
+            });
+            this.setState({ items: updatedItems, isEditing: false, title: '', description: '' });
+            await AsyncStorage.setItem('items', JSON.stringify(updatedItems));
+        } else {
+            const newItem = {
+                key: Math.random().toString(),
+                title: this.state.title,
+                description: this.state.description
+            };
+            const newItems = [...this.state.items, newItem];
+            this.setState({ items: newItems, title: '', description: '' });
+            await AsyncStorage.setItem('items', JSON.stringify(newItems));
+        }
+    };
+
+    renderHiddenItem = (data, rowMap) => (
+        <View style={styles.rowBack}>
+            <TouchableOpacity style={[styles.backRightBtn, styles.backRightBtnLeft]} onPress={() => this.editItem(data.item.key)}>
+                <Text style={styles.backTextWhite}>Editar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.backRightBtn, styles.backRightBtnRight]} onPress={() => this.deleteItem(data.item.key)}>
+                <Text style={styles.backTextWhite}>Excluir</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
+    deleteItem = async (key) => {
+        const filteredItems = this.state.items.filter(item => item.key !== key);
+        this.setState({ items: filteredItems });
+        await AsyncStorage.setItem('items', JSON.stringify(filteredItems));
+    };
+
+    render() {
+        return (
+            <View style={{ flex: 1, padding: 20 }}>
+                <TextInput
+                    placeholder="Título"
+                    value={this.state.title}
+                    onChangeText={(text) => this.setState({ title: text })}
+                />
+                <TextInput
+                    placeholder="Descrição"
+                    value={this.state.description}
+                    onChangeText={(text) => this.setState({ description: text })}
+                />
+                <TouchableOpacity onPress={this.handleAddOrEdit}>
+                    <Text>{this.state.isEditing ? 'Editar' : 'Adicionar'}</Text>
+                </TouchableOpacity>
+                <SwipeListView
+                    data={this.state.items}
+                    renderItem={({ item }) => (
+                        <View style={{ padding: 20, backgroundColor: '#FFF', borderBottomWidth: 1, borderColor: '#EEE' }}>
+                            <Text>{item.title}</Text>
+                            <Text>{item.description}</Text>
+                        </View>
+                    )}
+                    renderHiddenItem={this.renderHiddenItem}
+                    rightOpenValue={-150}
+                />
+            </View>
+        );
+    }
+}
+
+const styles = StyleSheet.create({
+    rowBack: {
+        alignItems: 'center',
+        backgroundColor: '#DDD',
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingLeft: 15,
+    },
+    backRightBtn: {
+        alignItems: 'center',
+        bottom: 0,
+        justifyContent: 'center',
+        position: 'absolute',
+        top: 0,
+        width: 75,
+    },
+    backRightBtnLeft: {
+        backgroundColor: 'lightgreen',
+        right: 75,
+    },
+    backRightBtnRight: {
+        backgroundColor: 'red',
+        right: 0,
+    },
+    backTextWhite: {
+        color: '#FFF',
+    },
+});
+
+export default TodoApp;
